@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
@@ -7,7 +8,33 @@ import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
 
 const Home: NextPage = () => {
+  const [completion, setCompletion] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState<string>("");
   const { address: connectedAddress } = useAccount();
+
+  const fetchCompletion = async () => {
+    try {
+      const response = await fetch("/api/getCompletion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: prompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error fetching completion");
+      }
+
+      const data = await response.json();
+      setCompletion(data.message);
+
+      // Log to the browser console after setting the response
+      console.log("OpenAI Completion Response:", data.message);
+    } catch (error) {
+      console.error("Error fetching completion:", error);
+    }
+  };
 
   return (
     <>
@@ -62,6 +89,22 @@ const Home: NextPage = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 text-center">
+          <h2>Enter a prompt for OpenAI:</h2>
+          <input
+            type="text"
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            className="border border-gray-300 rounded px-4 py-2 w-1/2 mt-4"
+            placeholder="Write your prompt here..."
+          />
+          <button onClick={fetchCompletion} className="bg-blue-500 text-white rounded px-4 py-2 ml-4 mt-4">
+            Get Completion
+          </button>
+          <h2 className="mt-8">OpenAI Completion Response:</h2>
+          {completion ? <p>{completion}</p> : <p>Loading...</p>}
         </div>
       </div>
     </>
