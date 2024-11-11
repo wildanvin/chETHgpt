@@ -1,14 +1,14 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { Contract } from "ethers";
+import { Streamer } from "../typechain-types";
 
 /**
- * Deploys a contract named "YourContract" using the deployer account and
+ * Deploys a contract named "Streamer" using the deployer account and
  * constructor arguments set to the deployer address
  *
  * @param hre HardhatRuntimeEnvironment object.
  */
-const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+const deployStreamer: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   /*
     On localhost, the deployer account is the one that comes with Hardhat, which is already funded.
 
@@ -19,26 +19,36 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
     with a random private key in the .env file (then used on hardhat.config.ts)
     You can run the `yarn account` command to check your balance in every network.
   */
+
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  await deploy("YourContract", {
+  await deploy("Streamer", {
     from: deployer,
     // Contract constructor arguments
-    args: [deployer],
+    args: [],
     log: true,
     // autoMine: can be passed to the deploy function to make the deployment process faster on local networks by
     // automatically mining the contract deployment transaction. There is no effect on live networks.
     autoMine: true,
   });
 
-  // Get the deployed contract to interact with it after deploying.
-  const yourContract = await hre.ethers.getContract<Contract>("YourContract", deployer);
-  console.log("👋 Initial greeting:", await yourContract.greeting());
+  // *Checkpoint 1*
+  // Get the deployed contract
+  const streamer: Streamer = await hre.ethers.getContract("Streamer", deployer);
+
+  // Transfer ownership to your front end address
+  console.log("\n 🤹  Sending ownership to frontend address...\n");
+  const ownerTx = await streamer.transferOwnership("0x9EceD3BE0cF8Fc5A55AAFFcb6c86A73A91942587");
+  console.log("\n       confirming...\n");
+  const ownershipResult = await ownerTx.wait();
+  if (ownershipResult) {
+    console.log("       ✅ ownership transferred successfully!\n");
+  }
 };
 
-export default deployYourContract;
+export default deployStreamer;
 
 // Tags are useful if you have multiple deploy files and only want to run one of them.
-// e.g. yarn deploy --tags YourContract
-deployYourContract.tags = ["YourContract"];
+// e.g. yarn deploy --tags Streamer
+deployStreamer.tags = ["Streamer"];
