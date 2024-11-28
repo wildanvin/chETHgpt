@@ -3,14 +3,36 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { NextPage } from "next";
+import { parseEther } from "viem";
 import { useAccount } from "wagmi";
 import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const Home: NextPage = () => {
   const [completion, setCompletion] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<string>("");
   const { address: connectedAddress } = useAccount();
+  const { writeContractAsync, isPending } = useScaffoldWriteContract("Streamer");
+
+  const fundChannel = async () => {
+    try {
+      await writeContractAsync(
+        {
+          functionName: "fundChannel",
+
+          value: parseEther("0.01"),
+        },
+        {
+          onBlockConfirmation: txnReceipt => {
+            console.log("📦 Transaction blockHash", txnReceipt.blockHash);
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Error funding channel", error);
+    }
+  };
 
   const fetchCompletion = async () => {
     try {
@@ -105,6 +127,12 @@ const Home: NextPage = () => {
           </button>
           <h2 className="mt-8">OpenAI Completion Response:</h2>
           {completion ? <p>{completion}</p> : <p>Loading...</p>}
+        </div>
+
+        <div className="mt-8 text-center">
+          <button className="btn btn-primary" onClick={fundChannel} disabled={isPending}>
+            {isPending ? <span className="loading loading-spinner loading-sm"></span> : "Send"}
+          </button>
         </div>
       </div>
     </>
