@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { NextPage } from "next";
-import { parseEther } from "viem";
-import { useAccount } from "wagmi";
+import { encodePacked, keccak256, parseEther, toBytes } from "viem";
+import { useAccount, useSignMessage } from "wagmi";
 import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -14,6 +14,10 @@ const Home: NextPage = () => {
   const [prompt, setPrompt] = useState<string>("");
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync, isPending } = useScaffoldWriteContract("Streamer");
+  const ETH_PER_REQUEST = "0.001";
+
+  const { signMessageAsync } = useSignMessage();
+  // STEP 1. FUND A CHANNEL
 
   const fundChannel = async () => {
     try {
@@ -33,6 +37,39 @@ const Home: NextPage = () => {
       console.error("Error funding channel", error);
     }
   };
+
+  //STEP 2. SIGN A MESSAGE WITH THE NEW BALANCE
+
+  async function reimburseService() {
+    const initialBalance = parseEther("0.01"); // This should be fetched from the database
+    const costPerRequest = parseEther(ETH_PER_REQUEST);
+
+    let updatedBalance = initialBalance - costPerRequest;
+
+    if (updatedBalance < 0n) {
+      updatedBalance = 0n;
+    }
+
+    const packed = encodePacked(["uint256"], [updatedBalance]);
+    const hashed = keccak256(packed);
+    const arrayified = toBytes(hashed);
+
+    let signature;
+    try {
+      signature = await signMessageAsync({ message: { raw: arrayified } });
+    } catch (err) {
+      console.error("signMessageAsync error", err);
+    }
+
+    const hexBalance = updatedBalance.toString(16);
+
+    if (hexBalance && signature) {
+      console.log("Signing correct");
+      //Here we should store the signature in the database
+    }
+  }
+
+  // OPEN AI INTEGRATION
 
   const fetchCompletion = async () => {
     try {
@@ -130,8 +167,16 @@ const Home: NextPage = () => {
         </div>
 
         <div className="mt-8 text-center">
+          <p>1. Open a channel</p>
           <button className="btn btn-primary" onClick={fundChannel} disabled={isPending}>
             {isPending ? <span className="loading loading-spinner loading-sm"></span> : "Send"}
+          </button>
+        </div>
+
+        <div className="mt-8 text-center">
+          <p>2. Sign the tx</p>
+          <button className="btn btn-primary" onClick={reimburseService}>
+            Sign Tx
           </button>
         </div>
       </div>
