@@ -1,5 +1,6 @@
 - [x] Smart contract from SRE
 - Create the vouchers flow in a similar way to SRE.
+- Create a component to sign the vouchers
 - Store the vouchers in mongo
 - Join the vouchers with the requests API
 

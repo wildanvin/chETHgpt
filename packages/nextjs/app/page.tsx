@@ -5,10 +5,13 @@ import { UserForm } from "../components/UserForm";
 // import Link from "next/link";
 import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
+import { useAccount } from "wagmi";
 import { useSignMessage } from "wagmi";
+import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const Home: NextPage = () => {
+  const { address: connectedAddress } = useAccount();
   const [messages, setMessages] = useState<{ user: string; text: string }[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -118,8 +121,18 @@ const Home: NextPage = () => {
       });
 
       if (signature) {
-        console.log("Signature stored:", signature);
-        // Store signature logic here
+        const response = await fetch("/api/postSignature", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: connectedAddress, // Replace with actual user address
+            signature,
+            updatedBalance: updatedBalance.toString(), // Convert BigInt to string
+          }),
+        });
+
+        const data = await response.json();
+        console.log("Signature stored:", data);
       }
     } catch (error) {
       console.error("Signing error:", error);
@@ -129,6 +142,7 @@ const Home: NextPage = () => {
   return (
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
+        <Address address={connectedAddress} />
         <UserForm />
         {/* Chat Interface */}
         <div className="flex-grow bg-base-300 w-full mt-2 px-1 py-5">
