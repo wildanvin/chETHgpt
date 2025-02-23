@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { UserForm } from "../components/UserForm";
 // import Link from "next/link";
 import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
@@ -128,6 +129,7 @@ const Home: NextPage = () => {
   return (
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
+        <UserForm />
         {/* Chat Interface */}
         <div className="flex-grow bg-base-300 w-full mt-2 px-1 py-5">
           <div className="max-w-2xl mx-auto">
