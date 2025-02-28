@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UserForm } from "../components/UserForm";
+// import { UserForm } from "../components/UserForm";
 // import Link from "next/link";
 import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
@@ -15,7 +15,6 @@ const Home: NextPage = () => {
   const [messages, setMessages] = useState<{ user: string; text: string }[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState<string | null>(null);
   const { writeContractAsync, isPending } = useScaffoldWriteContract("Streamer");
   const { signMessageAsync } = useSignMessage();
   const ETH_PER_REQUEST = "0.001";
@@ -50,42 +49,6 @@ const Home: NextPage = () => {
       ]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Payment handling
-  const handlePayment = async () => {
-    if (!paymentAmount) return;
-
-    try {
-      await writeContractAsync(
-        {
-          functionName: "fundChannel",
-          value: parseEther(paymentAmount),
-        },
-        {
-          onBlockConfirmation: txnReceipt => {
-            console.log("Transaction blockHash", txnReceipt.blockHash);
-            setMessages(prev => [
-              ...prev,
-              {
-                user: "chETHGPT",
-                text: `Payment of ${paymentAmount} ETH successful! Processing...`,
-              },
-            ]);
-            setPaymentAmount(null);
-          },
-        },
-      );
-    } catch (error) {
-      console.error("Payment error:", error);
-      setMessages(prev => [
-        ...prev,
-        {
-          user: "chETHGPT",
-          text: "Payment failed. Please try again.",
-        },
-      ]);
     }
   };
 
@@ -132,7 +95,8 @@ const Home: NextPage = () => {
         });
 
         const data = await response.json();
-        console.log("Signature stored:", data);
+        console.log("from database:", data);
+        console.log("Signature:", signature);
       }
     } catch (error) {
       console.error("Signing error:", error);
@@ -143,7 +107,7 @@ const Home: NextPage = () => {
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
         <Address address={connectedAddress} />
-        <UserForm />
+        {/* <UserForm /> */}
         {/* Chat Interface */}
         <div className="flex-grow bg-base-300 w-full mt-2 px-1 py-5">
           <div className="max-w-2xl mx-auto">
@@ -175,14 +139,6 @@ const Home: NextPage = () => {
                 {isLoading ? "Sending..." : "Send"}
               </button>
             </div>
-
-            {paymentAmount && (
-              <div className="mt-4 text-center">
-                <button className="btn btn-success" onClick={handlePayment} disabled={isPending}>
-                  {isPending ? "Processing..." : `Pay ${paymentAmount} ETH`}
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
