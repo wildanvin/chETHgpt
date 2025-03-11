@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-// import { UserForm } from "../components/UserForm";
-// import Link from "next/link";
 import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
 import { useAccount } from "wagmi";
 import { useSignMessage } from "wagmi";
+import { ChannelBalance } from "~~/components/ChannelBalance";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
@@ -84,19 +83,15 @@ const Home: NextPage = () => {
       });
 
       if (signature) {
-        const response = await fetch("/api/postSignature", {
+        await fetch("/api/postSignature", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            address: connectedAddress, // Replace with actual user address
+            address: connectedAddress,
             signature,
-            updatedBalance: updatedBalance.toString(), // Convert BigInt to string
+            updatedBalance: updatedBalance.toString(),
           }),
         });
-
-        const data = await response.json();
-        console.log("from database:", data);
-        console.log("Signature:", signature);
       }
     } catch (error) {
       console.error("Signing error:", error);
@@ -106,9 +101,8 @@ const Home: NextPage = () => {
   return (
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
+        <ChannelBalance connectedAddress={connectedAddress} />
         <Address address={connectedAddress} />
-        {/* <UserForm /> */}
-        {/* Chat Interface */}
         <div className="flex-grow bg-base-300 w-full mt-2 px-1 py-5">
           <div className="max-w-2xl mx-auto">
             <div className="bg-base-100 rounded-lg p-6 h-[400px] overflow-y-auto mb-4">
