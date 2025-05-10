@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useChannelBalance } from "./hooks/useChannelBalance";
 import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
 import { useAccount } from "wagmi";
@@ -9,16 +10,23 @@ import { ChannelBalance } from "~~/components/ChannelBalance";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
+const ETH_PER_REQUEST = "0.001";
+
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+
+  // ────────────────────────────────────────────────────────────
+  // Channel balance state (read + refresh) ⤵
+  const { refresh } = useChannelBalance(connectedAddress);
+  // ────────────────────────────────────────────────────────────
+
   const [messages, setMessages] = useState<{ user: string; text: string }[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { writeContractAsync, isPending } = useScaffoldWriteContract("Streamer");
   const { signMessageAsync } = useSignMessage();
-  const ETH_PER_REQUEST = "0.001";
 
-  // Chat message handling
+  // ───────────────── Chat handling ─────────────────
   const handleSendMessage = async () => {
     if (inputText.trim() === "") return;
 
@@ -51,7 +59,7 @@ const Home: NextPage = () => {
     }
   };
 
-  // Existing blockchain functions
+  // ───────────────── Blockchain actions ─────────────────
   const fundChannel = async () => {
     try {
       await writeContractAsync(
@@ -60,8 +68,18 @@ const Home: NextPage = () => {
           value: parseEther("0.01"),
         },
         {
-          onBlockConfirmation: txnReceipt => {
+          onBlockConfirmation: async txnReceipt => {
             console.log("Transaction blockHash", txnReceipt.blockHash);
+            await fetch("/api/postSignature", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                address: connectedAddress,
+                signature: "0x00",
+                updatedBalance: "10000000000000000",
+              }),
+            });
+            await refresh(); // 👈 keep UI in sync
           },
         },
       );
@@ -71,7 +89,13 @@ const Home: NextPage = () => {
   };
 
   const reimburseService = async () => {
-    const initialBalance = parseEther("0.01");
+    const initialBalance = await refresh();
+
+    if (initialBalance === null) {
+      alert("You need to open a channel first!");
+      return;
+    }
+
     const costPerRequest = parseEther(ETH_PER_REQUEST);
     let updatedBalance = initialBalance - costPerRequest;
     if (updatedBalance < 0n) updatedBalance = 0n;
@@ -83,8 +107,8 @@ const Home: NextPage = () => {
       });
 
       if (signature) {
-        await fetch("/api/postSignature", {
-          method: "POST",
+        await fetch("/api/updateBalance", {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             address: connectedAddress,
@@ -93,6 +117,7 @@ const Home: NextPage = () => {
           }),
         });
       }
+      await refresh();
     } catch (error) {
       console.error("Signing error:", error);
     }
