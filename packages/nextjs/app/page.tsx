@@ -7,7 +7,6 @@ import { encodePacked, keccak256, parseEther, toBytes } from "viem";
 import { useAccount } from "wagmi";
 import { useSignMessage } from "wagmi";
 import { ChannelBalance } from "~~/components/ChannelBalance";
-import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const ETH_PER_REQUEST = "0.001";
@@ -17,7 +16,7 @@ const Home: NextPage = () => {
 
   // ────────────────────────────────────────────────────────────
   // Channel balance state (read + refresh) ⤵
-  const { refresh } = useChannelBalance(connectedAddress);
+  const { balance, loading, refresh } = useChannelBalance(connectedAddress);
   // ────────────────────────────────────────────────────────────
 
   const [messages, setMessages] = useState<{ user: string; text: string }[]>([]);
@@ -28,32 +27,27 @@ const Home: NextPage = () => {
 
   // ───────────────── Chat handling ─────────────────
   const handleSendMessage = async () => {
-    if (inputText.trim() === "") return;
+    if (!inputText.trim()) return;
+
+    const ok = await reimburseService();
+    if (!ok) return;
 
     setMessages(prev => [...prev, { user: "You", text: inputText }]);
     setInputText("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/getCompletion", {
+      const res = await fetch("/api/getCompletion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: inputText }),
       });
-
-      if (!response.ok) throw new Error("Error fetching completion");
-
-      const data = await response.json();
+      if (!res.ok) throw new Error("Error fetching completion");
+      const data = await res.json();
       setMessages(prev => [...prev, { user: "chETHGPT", text: data.message }]);
-    } catch (error) {
-      console.error("Error:", error);
-      setMessages(prev => [
-        ...prev,
-        {
-          user: "chETHGPT",
-          text: "Oops! Something went wrong. Please try again later.",
-        },
-      ]);
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => [...prev, { user: "chETHGPT", text: "Oops! Something went wrong. Please try again later." }]);
     } finally {
       setIsLoading(false);
     }
@@ -68,8 +62,7 @@ const Home: NextPage = () => {
           value: parseEther("0.01"),
         },
         {
-          onBlockConfirmation: async txnReceipt => {
-            console.log("Transaction blockHash", txnReceipt.blockHash);
+          onBlockConfirmation: async () => {
             await fetch("/api/postSignature", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -79,21 +72,20 @@ const Home: NextPage = () => {
                 updatedBalance: "10000000000000000",
               }),
             });
-            await refresh(); // 👈 keep UI in sync
+            await refresh();
           },
         },
       );
-    } catch (error) {
-      console.error("Error funding channel", error);
+    } catch (err) {
+      console.error("Error funding channel", err);
     }
   };
 
-  const reimburseService = async () => {
+  const reimburseService = async (): Promise<boolean> => {
     const initialBalance = await refresh();
-
     if (initialBalance === null) {
       alert("You need to open a channel first!");
-      return;
+      return false;
     }
 
     const costPerRequest = parseEther(ETH_PER_REQUEST);
@@ -106,79 +98,80 @@ const Home: NextPage = () => {
         message: { raw: toBytes(keccak256(packed)) },
       });
 
-      if (signature) {
-        await fetch("/api/updateBalance", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address: connectedAddress,
-            signature,
-            updatedBalance: updatedBalance.toString(),
-          }),
-        });
-      }
+      await fetch("/api/updateBalance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: connectedAddress,
+          signature,
+          updatedBalance: updatedBalance.toString(),
+        }),
+      });
       await refresh();
-    } catch (error) {
-      console.error("Signing error:", error);
+      return true;
+    } catch (err) {
+      console.error("Signing error", err);
+      alert("Could not deduct channel balance");
+      return false;
     }
   };
 
   return (
-    <>
-      <div className="flex items-center flex-col flex-grow pt-10">
-        <ChannelBalance connectedAddress={connectedAddress} />
-        <Address address={connectedAddress} />
-        <div className="flex-grow bg-base-300 w-full mt-2 px-1 py-5">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-base-100 rounded-lg p-6 h-[400px] overflow-y-auto mb-4">
-              {messages.map((msg, index) => (
-                <div key={index} className={`mb-4 ${msg.user === "You" ? "text-right" : "text-left"}`}>
-                  <span className="font-bold text-secondary">{msg.user}:</span>
-                  <p className="mt-1 bg-base-200 p-2 rounded-lg inline-block">{msg.text}</p>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="text-left">
-                  <div className="mt-1 bg-base-200 p-2 rounded-lg inline-block">...</div>
-                </div>
-              )}
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-base-100 to-base-300 flex flex-col items-center py-8 px-4">
+      {/* Header */}
+      <h1 className="text-4xl font-bold mb-6 text-primary">chETHGPT</h1>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Type your message..."
-                className="input input-bordered w-full"
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyPress={e => e.key === "Enter" && handleSendMessage()}
-                disabled={isLoading}
-              />
-              <button className="btn btn-primary" onClick={handleSendMessage} disabled={isLoading}>
-                {isLoading ? "Sending..." : "Send"}
-              </button>
-            </div>
+      {/* Balance widget always visible */}
+      <ChannelBalance connectedAddress={connectedAddress} />
+
+      {/* Open‑channel button if none */}
+      {!loading && balance === null && (
+        <button className="btn btn-primary mt-6" onClick={fundChannel} disabled={isPending}>
+          {isPending ? <span className="loading loading-spinner loading-sm" /> : "Open a Channel with 0.01 ETH"}
+        </button>
+      )}
+
+      {/* Chat UI */}
+      {!loading && balance !== null && (
+        <div className="w-full max-w-2xl flex flex-col flex-grow mt-8 bg-base-200 rounded-2xl shadow-xl overflow-hidden">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin scrollbar-thumb-base-content/20">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.user === "You" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`px-4 py-2 rounded-2xl max-w-[80%] break-words shadow-md ${
+                    m.user === "You" ? "bg-primary text-primary-content" : "bg-base-100"
+                  }`}
+                >
+                  <span className="block text-xs opacity-70 mb-1 font-semibold">{m.user}</span>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="px-4 py-2 rounded-2xl bg-base-100 animate-pulse shadow-md">...</div>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Blockchain Actions */}
-        <div className="mt-8 text-center space-y-4">
-          <div>
-            <p>1. Open a channel</p>
-            <button className="btn btn-primary" onClick={fundChannel} disabled={isPending}>
-              {isPending ? <span className="loading loading-spinner loading-sm"></span> : "Fund Channel"}
+          {/* Input */}
+          <div className="border-t border-base-300 p-4 bg-base-100 flex gap-3">
+            <input
+              className="input input-bordered flex-1"
+              placeholder="Type your message…"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyPress={e => e.key === "Enter" && handleSendMessage()}
+              disabled={isLoading}
+            />
+            <button className="btn btn-primary" onClick={handleSendMessage} disabled={isLoading || !inputText.trim()}>
+              {isLoading ? "Sending…" : "Send"}
             </button>
           </div>
-
-          <div>
-            <p>2. Sign transaction</p>
-            <button className="btn btn-primary" onClick={reimburseService}>
-              Sign Tx
-            </button>
-          </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 };
 
