@@ -124,7 +124,7 @@ const Home: NextPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-base-100 to-base-300 flex flex-col items-center py-8 px-4">
       {/* Header */}
-      <h1 className="text-4xl font-bold mb-6 text-primary">chETHGPT</h1>
+      {/* <h1 className="text-4xl font-bold mb-6 text-primary">chETHGPT</h1> */}
 
       {/* Balance widget always visible */}
       {/* <ChannelBalance connectedAddress={connectedAddress} /> */}
