@@ -6,6 +6,7 @@ import type { NextPage } from "next";
 import { encodePacked, keccak256, parseEther, toBytes } from "viem";
 import { useAccount } from "wagmi";
 import { useSignMessage } from "wagmi";
+import { ChallengeDefundButton } from "~~/components/ChallengeDefundButton";
 import { ChannelBalance } from "~~/components/ChannelBalance";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
@@ -35,6 +36,7 @@ const Home: NextPage = () => {
     setMessages(prev => [...prev, { user: "You", text: inputText }]);
     setInputText("");
     setIsLoading(true);
+    await refresh();
 
     try {
       const res = await fetch("/api/getCompletion", {
@@ -70,6 +72,9 @@ const Home: NextPage = () => {
                 address: connectedAddress,
                 signature: "0x00",
                 updatedBalance: "10000000000000000",
+                isChannelChallenged: false, // new line
+                isChannelDefunded: false, // new line
+                challengedAt: 0,
               }),
             });
             await refresh();
@@ -107,7 +112,7 @@ const Home: NextPage = () => {
           updatedBalance: updatedBalance.toString(),
         }),
       });
-      await refresh();
+      //await refresh();
       return true;
     } catch (err) {
       console.error("Signing error", err);
@@ -122,7 +127,9 @@ const Home: NextPage = () => {
       <h1 className="text-4xl font-bold mb-6 text-primary">chETHGPT</h1>
 
       {/* Balance widget always visible */}
-      <ChannelBalance connectedAddress={connectedAddress} />
+      {/* <ChannelBalance connectedAddress={connectedAddress} /> */}
+      {/* Balance widget */}
+      <ChannelBalance balance={balance} loading={loading} />
 
       {/* Open‑channel button if none */}
       {!loading && balance === null && (
@@ -169,6 +176,10 @@ const Home: NextPage = () => {
               {isLoading ? "Sending…" : "Send"}
             </button>
           </div>
+          <ChallengeDefundButton
+            address={connectedAddress}
+            onStatusChange={refresh} // refresh balance once channel closes
+          />
         </div>
       )}
     </div>

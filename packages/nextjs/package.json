@@ -23,6 +23,7 @@
     "burner-connector": "^0.0.8",
     "daisyui": "4.12.10",
     "dotenv": "^16.4.5",
+    "lucide-react": "^0.511.0",
     "mongodb": "^6.13.1",
     "mongoose": "^8.10.1",
     "next": "^14.2.11",

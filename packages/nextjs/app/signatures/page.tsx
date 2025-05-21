@@ -13,6 +13,9 @@ const SignaturesPage = () => {
     address: string;
     signature: string; // 0x + 130‑hex‑chars (65‑byte) compact signature
     updatedBalance: string; // wei as decimal string
+    isChannelChallenged?: boolean;
+    isChannelDefunded?: boolean;
+    challengedAt?: number;
   }
 
   const [data, setData] = useState<SigDoc[]>([]);
@@ -36,6 +39,16 @@ const SignaturesPage = () => {
     return { r, s, v } as const;
   };
 
+  const statusBadge = (doc: SigDoc) => {
+    if (doc.isChannelDefunded) {
+      return <span className="badge badge-neutral">Defunded</span>;
+    }
+    if (doc.isChannelChallenged) {
+      return <span className="badge badge-error">Challenged</span>;
+    }
+    return <span className="badge badge-success">Open</span>;
+  };
+
   /* ------------------------------------------------------------------ */
   /* data load                                                          */
   /* ------------------------------------------------------------------ */
@@ -53,7 +66,7 @@ const SignaturesPage = () => {
       }
     };
     fetchSigs();
-  }, []);
+  }, [txStatus]); // refresh list after a withdrawal
 
   /* ------------------------------------------------------------------ */
   /* withdraw handler                                                   */
@@ -64,26 +77,15 @@ const SignaturesPage = () => {
       const { r, s, v } = splitSig(doc.signature);
       const updatedBalanceBig = BigInt(doc.updatedBalance);
 
-      /*
-         Solidity struct mapping for viem:  
-         Voucher = (uint256 updatedBalance, (bytes32 r, bytes32 s, uint8 v) sig)
-         => pass as tuple [updatedBalanceBig, [r, s, v]]
-      */
       await writeContractAsync({
         functionName: "withdrawEarnings",
-        // The ABI typer for a nested struct expects an *object* that mimics
-        // the shape of the Solidity struct, not a raw tuple.
         args: [
           {
             updatedBalance: updatedBalanceBig,
-            sig: {
-              r: r as `0x${string}`,
-              s: s as `0x${string}`,
-              v,
-            },
+            sig: { r: r as `0x${string}`, s: s as `0x${string}`, v },
           },
         ],
-      } as any); // cast because viem's inferred type complains
+      } as any);
       setTxStatus(`✅ Withdrawn for ${shorten(doc.address)}`);
     } catch (err: any) {
       console.error(err);
@@ -114,6 +116,7 @@ const SignaturesPage = () => {
               <tr className="text-base-content/70">
                 <th>#</th>
                 <th>Address</th>
+                <th>Status</th>
                 <th>Signature (r,s,v)</th>
                 <th className="text-right">Balance (ETH)</th>
                 <th></th>
@@ -124,12 +127,13 @@ const SignaturesPage = () => {
                 <tr key={doc._id} className="hover:bg-base-100/60">
                   <td>{idx + 1}</td>
                   <td className="font-mono">{shorten(doc.address)}</td>
+                  <td>{statusBadge(doc)}</td>
                   <td className="font-mono text-xs break-all max-w-xs">{shorten(doc.signature, 10, 10)}</td>
                   <td className="text-right font-semibold">
                     {Number(formatEther(BigInt(doc.updatedBalance))).toLocaleString()} ETH
                   </td>
                   <td className="text-right">
-                    <button className="btn btn-sm btn-primary" disabled={isPending} onClick={() => withdrawFor(doc)}>
+                    <button className="btn btn-sm btn-primary" onClick={() => withdrawFor(doc)}>
                       {isPending ? "…" : "Withdraw"}
                     </button>
                   </td>
@@ -137,7 +141,7 @@ const SignaturesPage = () => {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-6">
+                  <td colSpan={6} className="text-center py-6">
                     No signatures stored yet.
                   </td>
                 </tr>
