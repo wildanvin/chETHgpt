@@ -7,6 +7,8 @@ import client from "../../../lib/mongodb";
  *  Returns every document in the `signatures` collection
  *  sorted by newest first.
  */
+
+export const dynamic = "force-static";
 export async function GET() {
   try {
     const db = client.db("signaturesDB");
