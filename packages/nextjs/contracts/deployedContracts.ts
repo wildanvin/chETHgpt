@@ -279,7 +279,7 @@ const deployedContracts = {
   },
   11155420: {
     Streamer: {
-      address: "0x2A08a865e3e9667e58abFCCfDee2689CBF38d320",
+      address: "0x274afbBBbA1c3b7feaBb0D2D6067375088092D10",
       abi: [
         {
           inputs: [],
