@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
+export const dynamic = "force-dynamic";
+
 /**
  * /signatures – lists every stored signature & lets the Guru withdraw earnings
  */
