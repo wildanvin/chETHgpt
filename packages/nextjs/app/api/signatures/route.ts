@@ -8,7 +8,7 @@ import client from "../../../lib/mongodb";
  *  sorted by newest first.
  */
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const db = client.db("signaturesDB");
